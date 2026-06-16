@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -15,22 +16,24 @@ type client struct {
 	choked    bool
 }
 
-func new_client(p peer, info_hash [20]byte, peer_id [20]byte) (*client, error) {
+func new_client(p peer, info_hash [20]byte, peer_id [20]byte, num_pieces int) (*client, error) {
 	conn, err := net.DialTimeout("tcp", p.String(), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("connected to %s, doing handshake...\n", p)
 
 	if err := do_handshake(conn, info_hash, peer_id); err != nil {
 		conn.Close()
 		return nil, err
 	}
 
-	bf, err := recv_bitfield(conn)
+	bf, err := recv_bitfield(conn, num_pieces)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
+	log.Printf("got bitfield from %s\n", p)
 
 	return &client{
 		conn:      conn,
@@ -63,22 +66,19 @@ func do_handshake(conn net.Conn, info_hash [20]byte, peer_id [20]byte) error {
 	return nil
 }
 
-func recv_bitfield(conn net.Conn) (bitfield, error) {
+func recv_bitfield(conn net.Conn, num_pieces int) (bitfield, error) {
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	defer conn.SetDeadline(time.Time{})
 
-	for {
-		msg, err := read_message(conn)
-		if err != nil {
-			return nil, err
-		}
-		if msg == nil {
-			continue
-		}
-		if msg.id == msg_bitfield {
-			return msg.payload, nil
-		}
+	msg, err := read_message(conn)
+	if err != nil {
+		// if no bitfield sent, return empty. We'll learn pieces via have messages
+		return make(bitfield, (num_pieces+7)/8), nil
 	}
+	if msg == nil || msg.id != msg_bitfield {
+		return make(bitfield, (num_pieces+7)/8), nil
+	}
+	return msg.payload, nil
 }
 
 // send_request sends a request message asking for a block.

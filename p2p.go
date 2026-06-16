@@ -59,6 +59,7 @@ func (pp *piece_progress) handle_message(c *client) error {
 
 	case msg_unchoke:
 		c.choked = false
+		log.Printf("unchoked by peer\n")
 
 	case msg_choke:
 		c.choked = true
@@ -114,7 +115,7 @@ func check_integrity(pw *piece_work, data []byte) error {
 }
 
 func start_download_worker(p peer, info_hash [20]byte, peer_id [20]byte, work_ch chan *piece_work, results_ch chan *piece_result) {
-	c, err := new_client(p, info_hash, peer_id)
+	c, err := new_client(p, info_hash, peer_id, len(work_ch))
 	if err != nil {
 		log.Printf("could not connect to peer %s: %v\n", p, err)
 		return
@@ -129,6 +130,7 @@ func start_download_worker(p peer, info_hash [20]byte, peer_id [20]byte, work_ch
 	if err := c.send_interested(); err != nil {
 		return
 	}
+	log.Printf("sent interested to %s, choked=%v\n", p, c.choked)
 
 	for pw := range work_ch {
 		if !c.bitfield.has_piece(pw.index) {
@@ -165,6 +167,7 @@ func (t *torrent_file) download() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("got %d peers from tracker\n", len(peers))
 
 	work_ch := make(chan *piece_work, len(t.piece_hashes))
 	results_ch := make(chan *piece_result)

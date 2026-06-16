@@ -138,6 +138,7 @@ func (t *torrent_file) request_peers(peer_id [20]byte, port uint16) ([]peer, err
 		"downloaded": []string{"0"},
 		"compact":    []string{"1"},
 		"left":       []string{strconv.Itoa(t.length)},
+		"numwant":    []string{"100"},
 	}
 
 	base.RawQuery = params.Encode()
