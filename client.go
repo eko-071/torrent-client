@@ -81,6 +81,13 @@ func recv_bitfield(conn net.Conn) (bitfield, error) {
 	return msg.payload, nil
 }
 
+// send_request sends a request message asking for a block.
+func (c *client) send_request(index, begin, length int) error {
+	msg := format_request(index, begin, length)
+	_, err := c.conn.Write(msg.serialize())
+	return err
+}
+
 // send_interested tells the peer we want pieces from them.
 func (c *client) send_interested() error {
 	msg := &message{id: msg_interested}
