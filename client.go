@@ -16,7 +16,7 @@ type client struct {
 }
 
 func new_client(p peer, info_hash [20]byte, peer_id [20]byte) (*client, error) {
-	conn, err := net.DialTimeout("tcp", p.String(), 3*time.Second)
+	conn, err := net.DialTimeout("tcp", p.String(), 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -67,18 +67,18 @@ func recv_bitfield(conn net.Conn) (bitfield, error) {
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	defer conn.SetDeadline(time.Time{})
 
-	msg, err := read_message(conn)
-	if err != nil {
-		return nil, err
+	for {
+		msg, err := read_message(conn)
+		if err != nil {
+			return nil, err
+		}
+		if msg == nil {
+			continue
+		}
+		if msg.id == msg_bitfield {
+			return msg.payload, nil
+		}
 	}
-	if msg == nil {
-		return nil, fmt.Errorf("expected bitfield, got keep-alive")
-	}
-	if msg.id != msg_bitfield {
-		return nil, fmt.Errorf("expected bitfield (id %d), got id %d", msg_bitfield, msg.id)
-	}
-
-	return msg.payload, nil
 }
 
 // send_request sends a request message asking for a block.
